@@ -1,0 +1,103 @@
+-- Load Orion
+local OrionLib = loadstring(game:HttpGet('https://raw.githubusercontent.com/VerbalHubz/Verbal-Hub/refs/heads/main/Orion%20Hub%20Ui%20V3'))()
+
+local keyURL = "https://raw.githubusercontent.com/Donlemecook/MIrage/refs/heads/main/Key"
+local scriptURL = "https://raw.githubusercontent.com/Donlemecook/MIrage/refs/heads/main/SpeedMirage"
+local keyFile = "SpeedMirage.txt"
+
+local function request(tbl)
+    if syn and syn.request then
+        return syn.request(tbl)
+    elseif http and http.request then
+        return http.request(tbl)
+    elseif request then
+        return request(tbl)
+    else
+        error("Executor does not support request")
+    end
+end
+
+local function getKeys()
+    local response = request({
+        Url = keyURL,
+        Method = "GET"
+    })
+    if response and response.StatusCode == 200 then
+        return response.Body
+    end
+    return ""
+end
+
+local function isValidKey(key)
+    local keys = getKeys()
+    for k in string.gmatch(keys, "[^\r\n]+") do
+        if k == key then
+            return true
+        end
+    end
+    return false
+end
+
+-- Auto login
+if isfile and isfile(keyFile) then
+    local savedKey = readfile(keyFile)
+    if isValidKey(savedKey) then
+        loadstring(game:HttpGet(scriptURL))()
+        return
+    else
+        delfile(keyFile)
+    end
+end
+
+-- Orion Key Window
+local Window = OrionLib:MakeWindow({
+    Name = "Speed Mirage - Key System",
+    HidePremium = true,
+    SaveConfig = false
+})
+
+local Tab = Window:MakeTab({
+    Name = "Enter Key",
+    Icon = "rbxassetid://7733960981",
+    PremiumOnly = false
+})
+
+local enteredKey = ""
+
+Tab:AddTextbox({
+    Name = "Key",
+    Default = "",
+    TextDisappear = false,
+    Callback = function(Value)
+        enteredKey = Value
+    end
+})
+
+Tab:AddButton({
+    Name = "Submit",
+    Callback = function()
+        if isValidKey(enteredKey) then
+            if writefile then
+                writefile(keyFile, enteredKey)
+            end
+
+            OrionLib:MakeNotification({
+                Name = "Success",
+                Content = "Key Accepted!",
+                Time = 3
+            })
+
+            task.wait(1)
+            OrionLib:Destroy()
+            loadstring(game:HttpGet(scriptURL))()
+        else
+            OrionLib:MakeNotification({
+                Name = "Invalid Key",
+                Content = "Wrong key.",
+                Time = 3
+            })
+        end
+    end
+})
+
+OrionLib:Init()
