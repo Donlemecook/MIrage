@@ -1,0 +1,274 @@
+-- Load Orion Library
+local OrionLib = loadstring(game:HttpGet('https://raw.githubusercontent.com/VerbalHubz/Verbal-Hub/refs/heads/main/Orion%20Hub%20Ui%20V3'))()
+local Window = OrionLib:MakeWindow({Name = "Speed egors", HidePremium = false, SaveConfig = true, ConfigFolder = "FastAnimFE"})
+
+-- // Fast Animation
+local enabled = false
+local stopLoop = false
+local animationSpeed = 15
+
+local function fastAnimationLoop()
+    task.spawn(function()
+        while not stopLoop do
+            task.wait()
+            local player = game:GetService("Players").LocalPlayer
+            local char = player.Character or player.CharacterAdded:Wait()
+            local humanoid = char:FindFirstChildOfClass("Humanoid") or char:FindFirstChildOfClass("AnimationController")
+            if not humanoid then continue end
+            for _, track in next, humanoid:GetPlayingAnimationTracks() do
+                track:AdjustSpeed(animationSpeed)
+            end
+        end
+    end)
+end
+
+local TabAnim = Window:MakeTab({
+    Name = "Animation",
+    Icon = "rbxassetid://7733960981",
+    PremiumOnly = false
+})
+
+TabAnim:AddToggle({
+    Name = "Enable Fast Animation",
+    Default = false,
+    Callback = function(Value)
+        enabled = Value
+        if enabled then
+            stopLoop = false
+            fastAnimationLoop()
+        else
+            stopLoop = true
+        end
+    end
+})
+
+TabAnim:AddSlider({
+    Name = "Animation Speed",
+    Min = 1,
+    Max = 200,
+    Default = 15,
+    Color = Color3.fromRGB(255,255,255),
+    Increment = 1,
+    ValueName = "speed",
+    Callback = function(Value)
+        animationSpeed = Value
+    end
+})
+
+-- // Freeze Camera (Q Keybind)
+local TabFreeze = Window:MakeTab({
+    Name = "Freeze Camera",
+    Icon = "rbxassetid://7734026524",
+    PremiumOnly = false
+})
+
+TabFreeze:AddParagraph("Keybind","Press Q to toggle Freeze Camera")
+
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local camera = workspace.CurrentCamera
+
+local frozen = false
+local frozenCFrame
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.Q then
+        if not frozen then
+            frozenCFrame = camera.CFrame
+            camera.CameraType = Enum.CameraType.Scriptable
+            camera.CFrame = frozenCFrame
+            frozen = true
+        else
+            camera.CameraType = Enum.CameraType.Custom
+            frozen = false
+        end
+    end
+end)
+
+RunService.RenderStepped:Connect(function()
+    if frozen and frozenCFrame then
+        camera.CFrame = frozenCFrame
+    end
+end)
+
+-- // TheFake Tab
+local TabFake = Window:MakeTab({
+    Name = "TheFake",
+    Icon = "rbxassetid://7733960981",
+    PremiumOnly = false
+})
+
+-- Faster Mirage defaults
+local mirageSettings = {}
+for i = 1, 10 do
+    mirageSettings[i] = {
+        MinSpeed = 0.05,
+        MaxSpeed = 0.0001, -- extreme fast
+        Acceleration = 0.02
+    }
+end
+
+local function createMirageTool(numberOfPoints)
+    local player = game.Players.LocalPlayer
+    local backpack = player:WaitForChild("Backpack")
+
+    local tool = Instance.new("Tool")
+    tool.Name = "Speed Mirage ("..numberOfPoints.." clone)"
+    tool.RequiresHandle = false
+    tool.Parent = backpack
+
+    local mouse
+    local running = false
+    local clickConnection
+    local points = {}
+    local currentDelay
+    local originalPos
+
+    local gui = Instance.new("ScreenGui", player.PlayerGui)
+    gui.ResetOnSpawn = false
+
+    local label = Instance.new("TextLabel", gui)
+    label.Size = UDim2.new(0,240,0,40)
+    label.Position = UDim2.new(0.5,-120,0.85,0)
+    label.BackgroundColor3 = Color3.fromRGB(20,20,20)
+    label.TextColor3 = Color3.new(1,1,1)
+    label.TextScaled = true
+    label.Font = Enum.Font.GothamBold
+    label.Visible = false
+
+    local function setText(t)
+        label.Text = t
+        label.Visible = true
+    end
+
+    local function teleportLoop()
+        currentDelay = mirageSettings[numberOfPoints].MinSpeed
+        while running do
+            local char = player.Character
+            if not char then break end
+            local hrp = char:FindFirstChild("HumanoidRootPart")
+            if not hrp then break end
+
+            for _,pos in ipairs(points) do
+                if not running then break end
+                hrp.CFrame = CFrame.new(pos.X, originalPos.Position.Y, pos.Z)
+                task.wait(currentDelay)
+                hrp.CFrame = originalPos
+                task.wait(currentDelay)
+            end
+
+            if currentDelay > mirageSettings[numberOfPoints].MaxSpeed then
+                currentDelay = math.max(
+                    mirageSettings[numberOfPoints].MaxSpeed,
+                    currentDelay - mirageSettings[numberOfPoints].Acceleration
+                )
+            end
+        end
+    end
+
+    tool.Equipped:Connect(function()
+        mouse = player:GetMouse()
+        points = {}
+        running = false
+        setText("Points: 0/"..numberOfPoints)
+
+        clickConnection = mouse.Button1Down:Connect(function()
+            if running then
+                running = false
+                label.Visible = false
+                return
+            end
+
+            if #points >= numberOfPoints then
+                return
+            end
+
+            table.insert(points, mouse.Hit.p)
+            setText("Points: "..#points.."/"..numberOfPoints)
+
+            if #points == numberOfPoints then
+                local char = player.Character
+                if not char then return end
+                local hrp = char:FindFirstChild("HumanoidRootPart")
+                if not hrp then return end
+
+                originalPos = hrp.CFrame
+
+                for i = 3,1,-1 do
+                    setText("Starting in "..i.."...")
+                    task.wait(1)
+                end
+
+                setText("Started!")
+                task.wait(0.5)
+                label.Visible = false
+
+                running = true
+                task.spawn(teleportLoop)
+            end
+        end)
+    end)
+
+    tool.Unequipped:Connect(function()
+        running = false
+        points = {}
+        originalPos = nil
+        label.Visible = false
+        if clickConnection then
+            clickConnection:Disconnect()
+            clickConnection = nil
+        end
+    end)
+end
+
+for i = 1,10 do
+    TabFake:AddButton({
+        Name = "Speed Mirage "..i,
+        Callback = function()
+            createMirageTool(i)
+        end
+    })
+
+    TabFake:AddSlider({
+        Name = "Mirage "..i.." Min Speed",
+        Min = 0.001,
+        Max = 1,
+        Default = 0.05,
+        Color = Color3.fromRGB(255,255,255),
+        Increment = 0.001,
+        ValueName = "s",
+        Callback = function(v)
+            mirageSettings[i].MinSpeed = v
+        end
+    })
+
+    TabFake:AddSlider({
+        Name = "Mirage "..i.." Max Speed",
+        Min = 0.0001,
+        Max = 0.5,
+        Default = 0.0001,
+        Color = Color3.fromRGB(255,255,255),
+        Increment = 0.0001,
+        ValueName = "s",
+        Callback = function(v)
+            mirageSettings[i].MaxSpeed = v
+        end
+    })
+
+    TabFake:AddSlider({
+        Name = "Mirage "..i.." Acceleration",
+        Min = 0.001,
+        Max = 0.1,
+        Default = 0.02,
+        Color = Color3.fromRGB(255,255,255),
+        Increment = 0.001,
+        ValueName = "rate",
+        Callback = function(v)
+            mirageSettings[i].Acceleration = v
+        end
+    })
+    
+end
+
+OrionLib:Init()
